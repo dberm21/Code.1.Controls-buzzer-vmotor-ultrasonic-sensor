@@ -1,0 +1,245 @@
+//Define pins
+const int trigPin = 9;
+const int echoPin = 10;
+const int buzzer = 8;
+const int mvmotor = 11;
+byte buzzerpin = 8;
+byte mvmotorpin = 11;
+
+// Define variables
+long duration;
+int distance;
+int safetyDistance;
+
+// Buzzer/Mvmotor on/off if true
+boolean debug = true;
+boolean buzzerbutton = true;
+boolean mvmotorbutton = true;
+
+#include <SoftwareSerial.h>
+SoftwareSerial BTserial(2, 3); // RX | TX
+
+
+// max length of command is 20 chrs
+const byte numChars = 20;
+char receivedChars[numChars];
+boolean newData = false;
+
+
+void setup() {
+  pinMode(trigPin, OUTPUT); // Sets the trigPin as Output
+  pinMode(echoPin, INPUT); // Sets the echoPin as Input
+  pinMode(buzzer, OUTPUT); // Sets the buzzPin as Output
+  pinMode(mvmotor, OUTPUT); // Sets the motorPin as Output
+  Serial.begin(9600); // Begins serial communication
+
+  // HC-06 Configurations
+  pinMode(8, OUTPUT);
+  pinMode(11, OUTPUT);
+  Serial.begin(9600);
+  Serial.println("<Arduino is ready>");
+  BTserial.begin(9600);
+}
+
+void loop() {
+
+  // HC-06 Configurations
+  if (BTserial.available() > 0)     {
+    recvWithStartEndMarkers();
+  }
+  parseData();
+
+  // Clears the trigPin
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  // Sets the trigPin HIGH after 5 micro seconds
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(trigPin, LOW);
+
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(echoPin, HIGH);
+
+  // Calculating the distance (cm)
+  distance = duration * 0.034 / 2;
+
+
+  safetyDistance = distance;
+
+  if (buzzerbutton) {          // if buzzerbutton is true
+
+    if (distance <= 12) {      // If distance is less than or equal to 12cm
+      digitalWrite(buzzer, HIGH);  // buzzer will turn on
+      delay(40);                  // wait 2/50 of a second
+      digitalWrite(buzzer, LOW);   // buzzer will turn off
+      delay(90);                 // wait 9/100 of a second
+    }
+
+    else if ( 12 < distance && distance <= 22) { // If distance is less than or equal to 22cm but greater than 12cm
+      digitalWrite(buzzer, HIGH);
+      delay(65);
+      digitalWrite(buzzer, LOW);
+      delay(120);
+    }
+
+    else if ( 22 < distance && distance <= 30) { // If distance is less than or equal to 30cm but greater than 22cm
+      digitalWrite(buzzer, HIGH);
+      delay(80);
+      digitalWrite(buzzer, LOW);
+      delay(310);
+    }
+
+    else if ( 30 < distance && distance <= 60) { // If distance is less than or equal to 60cm but greater than 30cm
+      digitalWrite(buzzer, HIGH);
+      delay(100);
+      digitalWrite(buzzer, LOW);
+      delay(470);
+    }
+
+    else if ( 60 < distance && distance <= 100 ) { // If distance is less than or equal to 100cm but greater than 60cm
+      digitalWrite(buzzer, HIGH);
+      delay(150);
+      digitalWrite(buzzer, LOW);
+      delay(700);
+    }
+
+    else if ( distance > 100 ) { // If distance is greater than 100cm
+      digitalWrite(buzzer, LOW);
+    }
+  }
+
+
+
+
+
+  if (mvmotorbutton) {         // if mvmotorbutton is true
+
+    if (distance <= 12) {      // If distance is less than or equal to 12cm
+      digitalWrite(mvmotor, HIGH);  // mvmotor will turn on
+      delay(40);                // wait 2/50 of a second
+      digitalWrite(mvmotor, LOW);   // mvmotor will turn off
+      delay(90);               // wait 9/100 of a second
+    }
+
+    else if ( 12 < distance && distance <= 22) { // If distance is less than or equal to 22cm but greater than 12cm
+      digitalWrite(mvmotor, HIGH);
+      delay(60);
+      digitalWrite(mvmotor, LOW);
+      delay(140);
+    }
+
+    else if ( 22 < distance && distance <= 30) { // If distance is less than or equal to 30cm but greater than 22cm
+      digitalWrite(mvmotor, HIGH);
+      delay(80);
+      digitalWrite(mvmotor, LOW);
+      delay(310);
+    }
+
+    else if ( 30 < distance && distance <= 60) { // If distance is less than or equal to 60cm but greater than 30cm
+      digitalWrite(mvmotor, HIGH);
+      delay(100);
+      digitalWrite(mvmotor, LOW);
+      delay(470);
+    }
+
+    else if ( 60 < distance && distance <= 100 ) { // If distance is less than or equal to 100cm but greater than 60cm
+      digitalWrite(mvmotor, HIGH);
+      delay(150);
+      digitalWrite(mvmotor, LOW);
+      delay(700);
+    }
+
+    else if ( distance > 100 ) { // If distance is greater than 100cm
+      digitalWrite(mvmotor, LOW);
+    }
+  }
+
+
+
+  // Displays the distance on the Serial Monitor
+  Serial.print("Distance: ");
+  Serial.println(distance);
+}
+
+// HC-06
+void parseData()
+{
+
+  newData = false;
+
+  if (debug) {
+    Serial.println( receivedChars );  // Displays the characters (B/V/1/0) on the serial monitor
+  }
+
+  // B1 = buzzer on, B0 = buzzer off, V1 = mvmotor on, V0 = mvmotor off
+
+  if (receivedChars[0] == 'B') {
+    if (receivedChars[1] == '1' ) {
+      buzzerbutton = true;
+
+
+    }
+    else if (receivedChars[1] == '0') {
+      buzzerbutton = false;
+
+    }
+  }
+  else if (receivedChars[0] == 'V') {
+    if (receivedChars[1] == '1') {
+      mvmotorbutton = true;
+
+
+
+    }
+    else if (receivedChars[1] == '0') {
+      mvmotorbutton = false;
+
+
+    }
+
+  }
+
+}
+
+
+
+
+
+void recvWithStartEndMarkers()
+{
+
+  static boolean recvInProgress = false;
+  static byte ndx = 0;
+  char startMarker = '<';
+  char endMarker = '>';
+  char rc;
+
+  if (BTserial.available() > 0)
+  {
+    rc = BTserial.read();
+    if (recvInProgress == true)
+    {
+      if (rc != endMarker)
+      {
+        receivedChars[ndx] = rc;
+        ndx++;
+        if (ndx >= numChars) {
+          ndx = numChars - 1;
+        }
+      }
+      else
+      {
+        receivedChars[ndx] = '\0'; // terminate the string
+        recvInProgress = false;
+        ndx = 0;
+        newData = true;
+      }
+    }
+
+    else if (rc == startMarker) {
+      recvInProgress = true;
+    }
+  }
+
+}
